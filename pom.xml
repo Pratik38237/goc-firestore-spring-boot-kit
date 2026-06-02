@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.0.6</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<!-- TODO: replace 'your-username' with your real GitHub username/org. The io.github.*
+	     namespace is verified by GitHub on the Central Portal, so no domain is required.
+	     This groupId is the Maven coordinate only; it does NOT need to match the Java
+	     package names (com.goc.firestore.*). -->
+	<groupId>io.github.your-username</groupId>
+	<artifactId>goc-firestore-spring-boot-kit</artifactId>
+	<version>0.0.1</version>
+	<name>goc-firestore-spring-boot-kit</name>
+	<description>Spring Boot starter that auto-initializes Firebase and exposes Firestore beans</description>
+	<!-- TODO: replace the placeholder URLs/owner below with your real GitHub repo and details. -->
+	<url>https://github.com/your-org/goc-firestore-spring-boot-kit</url>
+	<licenses>
+		<license>
+			<name>The Apache License, Version 2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<id>goc</id>
+			<name>GOC</name>
+			<email>dev@your-org.com</email>
+			<organization>GOC</organization>
+			<organizationUrl>https://github.com/your-org</organizationUrl>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git:https://github.com/your-org/goc-firestore-spring-boot-kit.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/your-org/goc-firestore-spring-boot-kit.git</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/your-org/goc-firestore-spring-boot-kit</url>
+	</scm>
+	<properties>
+		<java.version>21</java.version>
+	</properties>
+	<dependencies>
+		<!-- Auto-configuration support. Pulls in spring-core/spring-context transitively
+		     without forcing a web/server stack onto the consuming application. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-autoconfigure</artifactId>
+		</dependency>
+
+		<!-- Generates metadata for the @ConfigurationProperties so IDEs can offer
+		     autocompletion for the goc.firestore.* properties. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
+
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>9.8.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- NOTE: the spring-boot-maven-plugin (repackage goal) is intentionally
+			     omitted. This module is a reusable library, not an executable
+			     application, so it must be packaged as a plain jar. -->
+		</plugins>
+	</build>
+
+	<profiles>
+		<!--
+			Activate with: ./mvnw -Prelease clean deploy
+			Produces sources + javadoc jars, GPG-signs every artifact, and uploads to the
+			Central Publisher Portal (central.sonatype.com). Kept out of the default build
+			so day-to-day `test`/`install` runs do not require GPG keys.
+		-->
+		<profile>
+			<id>release</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-source-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>attach-sources</id>
+								<goals>
+									<goal>jar-no-fork</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-gpg-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>sign-artifacts</id>
+								<phase>verify</phase>
+								<goals>
+									<goal>sign</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+
+					<plugin>
+						<groupId>org.sonatype.central</groupId>
+						<artifactId>central-publishing-maven-plugin</artifactId>
+						<version>0.7.0</version>
+						<extensions>true</extensions>
+						<configuration>
+							<!-- The server id whose credentials live in settings.xml -->
+							<publishingServerId>central</publishingServerId>
+							<!-- Set to true to auto-release once validation passes; leave false
+							     to review/release manually from the portal UI. -->
+							<autoPublish>false</autoPublish>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+</project>
