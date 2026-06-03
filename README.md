@@ -20,8 +20,7 @@ can override either of them.
 
 ```xml
 <dependency>
-    <!-- replace 'your-username' with the GitHub account used to publish to Maven Central -->
-    <groupId>io.github.your-username</groupId>
+    <groupId>io.github.Pratik38237</groupId>
     <artifactId>goc-firestore-spring-boot-kit</artifactId>
     <version>0.0.1</version>
 </dependency>
