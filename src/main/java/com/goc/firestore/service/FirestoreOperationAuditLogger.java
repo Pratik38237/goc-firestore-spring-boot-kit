@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.goc.firestore.autoconfigure.FirestoreProperties;
@@ -17,7 +19,11 @@ import org.springframework.util.StringUtils;
  */
 public final class FirestoreOperationAuditLogger {
 
-    private static final String DEFAULT_LOG_FILE = "logs/firestore-operations.log";
+    static final String DEFAULT_LOG_FILENAME = "firestore-operations.log";
+    private static final String DEFAULT_LOG_LOCATION = "logs/" + DEFAULT_LOG_FILENAME;
+    private static final ZoneId OPERATIONS_LOG_ZONE = ZoneId.of("Asia/Kolkata");
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS");
 
     private final boolean enabled;
     private final Path logFile;
@@ -32,9 +38,11 @@ public final class FirestoreOperationAuditLogger {
         if (properties == null || !properties.isOperationsLogEnabled()) {
             return disabled();
         }
-        String configured = properties.getOperationsLogFile();
-        String path = StringUtils.hasText(configured) ? configured : DEFAULT_LOG_FILE;
-        return new FirestoreOperationAuditLogger(true, resolveLogPath(path));
+        String configured = properties.getOperationsLogLocation();
+        if (!StringUtils.hasText(configured)) {
+            configured = DEFAULT_LOG_LOCATION;
+        }
+        return new FirestoreOperationAuditLogger(true, resolveOperationsLogFile(configured));
     }
 
     public static FirestoreOperationAuditLogger disabled() {
@@ -66,6 +74,10 @@ public final class FirestoreOperationAuditLogger {
         }
     }
 
+    static String formatTimestamp(Instant instant) {
+        return TIMESTAMP_FORMAT.format(instant.atZone(OPERATIONS_LOG_ZONE)) + " IST";
+    }
+
     static String formatPath(String... pathSegments) {
         if (pathSegments == null || pathSegments.length == 0) {
             return "";
@@ -76,7 +88,7 @@ public final class FirestoreOperationAuditLogger {
     static String formatLine(String operation, String path, long durationMs, boolean success, String errorMessage) {
         String status = success ? "OK" : "FAILED";
         StringBuilder line = new StringBuilder(128);
-        line.append(Instant.now()).append(" | ");
+        line.append(formatTimestamp(Instant.now())).append(" | ");
         line.append(operation).append(" | ");
         line.append(path).append(" | ");
         line.append(durationMs).append("ms | ");
@@ -87,21 +99,48 @@ public final class FirestoreOperationAuditLogger {
         return line.toString();
     }
 
-    private static String sanitize(String message) {
-        return message.replace('\n', ' ').replace('\r', ' ');
+    /**
+     * Resolves {@code location} to a log file path. Folders receive
+     * {@value #DEFAULT_LOG_FILENAME}; values ending in {@code .log} are treated as files.
+     */
+    static Path resolveOperationsLogFile(String location) {
+        String normalized = stripFilePrefix(location.trim());
+        Path resolved = toAbsolutePath(normalized);
+        if (treatAsDirectory(location, resolved)) {
+            return resolved.resolve(DEFAULT_LOG_FILENAME).normalize();
+        }
+        return resolved;
     }
 
-    private static Path resolveLogPath(String location) {
-        String normalized = location.trim();
-        if (normalized.regionMatches(true, 0, "file:", 0, 5)) {
-            normalized = normalized.substring(5);
+    private static boolean treatAsDirectory(String rawLocation, Path resolved) {
+        if (rawLocation.endsWith("/") || rawLocation.endsWith("\\")) {
+            return true;
         }
+        if (Files.exists(resolved) && Files.isDirectory(resolved)) {
+            return true;
+        }
+        String fileName = resolved.getFileName().toString();
+        return !fileName.toLowerCase().endsWith(".log");
+    }
+
+    private static String stripFilePrefix(String location) {
+        if (location.regionMatches(true, 0, "file:", 0, 5)) {
+            return location.substring(5);
+        }
+        return location;
+    }
+
+    private static Path toAbsolutePath(String normalized) {
         Path path = Path.of(normalized);
         if (!path.isAbsolute()) {
             String userDir = System.getProperty("user.dir", ".");
             path = Path.of(userDir).resolve(path).normalize();
         }
-        return path;
+        return path.normalize();
+    }
+
+    private static String sanitize(String message) {
+        return message.replace('\n', ' ').replace('\r', ' ');
     }
 
     private void ensureParentDirectory() throws IOException {

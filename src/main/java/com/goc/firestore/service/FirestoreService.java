@@ -1,10 +1,14 @@
 package com.goc.firestore.service;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.SetOptions;
 import com.google.cloud.firestore.WriteResult;
 
 import org.springframework.util.Assert;
@@ -15,13 +19,14 @@ import org.springframework.util.Assert;
  *
  * <p>Paths are expressed as alternating <em>collection, documentId</em> segments, so
  * the pattern
- * {@code db.collection("clients").document(clientId).collection("jobs").document(jobKey)}
+ * {@code db.collection("collectionName").document(collectionId).collection("subCollectionName").document(subCollectionId)}
  * becomes:</p>
  *
  * <pre>
- * firestoreService.delete(COLLECTION_CLIENTS, clientId, COLLECTION_JOBS, jobKey);
- * firestoreService.save(jobData, COLLECTION_CLIENTS, clientId, COLLECTION_JOBS, jobKey);
- * Job job = firestoreService.get(Job.class, COLLECTION_CLIENTS, clientId, COLLECTION_JOBS, jobKey);
+ * firestoreService.delete(COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
+ * firestoreService.scheduleDelete(10_000, COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
+ * firestoreService.save(jobData, COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
+ * Job job = firestoreService.get(Job.class, COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
  * </pre>
  *
  * <p>Each {@link #save} and {@link #delete} can append a line to the dedicated operations
@@ -32,6 +37,12 @@ import org.springframework.util.Assert;
  * {@link #getFirestore()} or {@link #document(String...)}.</p>
  */
 public class FirestoreService {
+
+    private static final ScheduledExecutorService DELETE_SCHEDULER = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread thread = new Thread(r, "goc-firestore-delete-scheduler");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private final Firestore firestore;
     private final FirestoreOperationAuditLogger operationAuditLogger;
@@ -50,7 +61,7 @@ public class FirestoreService {
     /**
      * Builds a {@link DocumentReference} from alternating
      * {@code collection, documentId} path segments (e.g.
-     * {@code "clients", clientId, "jobs", jobKey}).
+     * {@code "collectionName", collectionId, "subCollectionName", subCollectionId}).
      */
     public DocumentReference document(String... pathSegments) {
         Assert.notNull(pathSegments, "pathSegments must not be null");
@@ -76,7 +87,7 @@ public class FirestoreService {
         String path = FirestoreOperationAuditLogger.formatPath(pathSegments);
         long startNanos = System.nanoTime();
         try {
-            WriteResult result = document(pathSegments).set(data).get();
+            WriteResult result = document(pathSegments).set(data, SetOptions.merge()).get();
             operationAuditLogger.log("SAVE", path, elapsedMs(startNanos), true, null);
             return result;
         }
@@ -90,13 +101,47 @@ public class FirestoreService {
      * Deletes the document at the given path.
      *
      * <p>Mirrors:
-     * {@code db.collection(COLLECTION_CLIENTS).document(clientId)
-     *           .collection(COLLECTION_JOBS).document(jobKey).delete()}.</p>
+     * {@code db.collection(COLLECTION).document(collectionId)
+     *           .collection(SUB_COLLECTION).document(subCollectionId).delete()}.</p>
      *
      * @param pathSegments alternating collection / documentId segments
      * @return the write result reported by Firestore
      */
     public WriteResult delete(String... pathSegments)
+            throws ExecutionException, InterruptedException {
+        return executeDelete(pathSegments);
+    }
+
+    /**
+     * Schedules deletion of the document after {@code delayMillis}. Returns immediately;
+     * the delete (and audit log entry) runs once the delay elapses.
+     *
+     * @param delayMillis  delay before delete; {@code 0} runs the delete on the scheduler
+     *                     thread as soon as possible (non-blocking for the caller)
+     * @param pathSegments alternating collection / documentId segments
+     */
+    public void scheduleDelete(long delayMillis, String... pathSegments) {
+        Assert.isTrue(delayMillis >= 0, "delayMillis must not be negative");
+        Assert.notNull(pathSegments, "pathSegments must not be null");
+        String[] pathCopy = pathSegments.clone();
+        DELETE_SCHEDULER.schedule(() -> runScheduledDelete(pathCopy), delayMillis, TimeUnit.MILLISECONDS);
+    }
+
+    private void runScheduledDelete(String[] pathSegments) {
+        try {
+            executeDelete(pathSegments);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            String path = FirestoreOperationAuditLogger.formatPath(pathSegments);
+            operationAuditLogger.log("DELETE", path, 0, false, "scheduled delete interrupted");
+        }
+        catch (ExecutionException e) {
+            // executeDelete already audit-logs failures
+        }
+    }
+
+    private WriteResult executeDelete(String[] pathSegments)
             throws ExecutionException, InterruptedException {
         String path = FirestoreOperationAuditLogger.formatPath(pathSegments);
         long startNanos = System.nanoTime();

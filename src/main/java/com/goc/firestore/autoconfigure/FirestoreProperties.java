@@ -17,7 +17,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     project-id: my-gcp-project          # optional
  *     database-id: "(default)"            # optional, for named databases
  *     operations-log-enabled: true         # optional, dedicated save/delete audit file
- *     operations-log-file: logs/firestore-operations.log
+ *     operations-log-location: logs          # folder → logs/firestore-operations.log
+ *     # operations-log-location: logs/firestore-operations.log  # or full file path
  * </pre>
  */
 @ConfigurationProperties(prefix = "goc.firestore")
@@ -52,15 +53,17 @@ public class FirestoreProperties {
 
     /**
      * When {@code true}, each {@code save} and {@code delete} on {@link com.goc.firestore.service.FirestoreService}
-     * appends one line to {@link #operationsLogFile}.
+     * appends one line to the operations audit log file.
      */
     private boolean operationsLogEnabled = false;
 
     /**
-     * Dedicated audit log file for Firestore write operations. Relative paths are resolved
-     * against {@code user.dir}. Supports a {@code file:} prefix.
+     * Folder or file path for the operations audit log. When a folder is given (trailing
+     * {@code /}, existing directory, or no {@code .log} suffix), the file
+     * {@code firestore-operations.log} is created inside it. Relative paths resolve against
+     * {@code user.dir}. Supports a {@code file:} prefix.
      */
-    private String operationsLogFile = "logs/firestore-operations.log";
+    private String operationsLogLocation = "logs/firestore-operations.log";
 
     public boolean isEnabled() {
         return enabled;
@@ -102,11 +105,27 @@ public class FirestoreProperties {
         this.operationsLogEnabled = operationsLogEnabled;
     }
 
-    public String getOperationsLogFile() {
-        return operationsLogFile;
+    public String getOperationsLogLocation() {
+        return operationsLogLocation;
     }
 
+    public void setOperationsLogLocation(String operationsLogLocation) {
+        this.operationsLogLocation = operationsLogLocation;
+    }
+
+    /**
+     * @deprecated use {@link #getOperationsLogLocation()} / {@code operations-log-location}
+     */
+    @Deprecated
+    public String getOperationsLogFile() {
+        return operationsLogLocation;
+    }
+
+    /**
+     * @deprecated use {@link #setOperationsLogLocation(String)} / {@code operations-log-location}
+     */
+    @Deprecated
     public void setOperationsLogFile(String operationsLogFile) {
-        this.operationsLogFile = operationsLogFile;
+        this.operationsLogLocation = operationsLogFile;
     }
 }

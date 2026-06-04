@@ -40,6 +40,10 @@ Add to `src/main/resources/application.properties`:
 # Use file: prefix so Spring loads from disk (recommended on Windows/Linux)
 goc.firestore.credentials-location=file:${user.dir}/config/firebase-service-account.json
 
+# --- Optional ---
+goc.firestore.enabled=true
+goc.firestore.project-id=your-gcp-project-id
+
 # --- Operations audit log (save / delete history in a separate file) ---
 goc.firestore.operations-log-enabled=true
 # Folder: creates firestore-operations.log inside this directory
@@ -92,10 +96,7 @@ public class NotificationManager {
         firestore.save(payload, COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
 
         if (shouldDelete(payload)) {
-           // delete using time delay
             firestore.scheduleDelete(DELETE_AFTER_MS, COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
-            // direct delete without delay
-            firestore.delete(COLLECTION, collectionId, SUB_COLLECTION, subCollectionId);
         }
     }
 
