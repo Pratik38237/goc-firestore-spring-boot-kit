@@ -10,6 +10,7 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
 
+import com.goc.firestore.service.FirestoreOperationAuditLogger;
 import com.goc.firestore.service.FirestoreService;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -83,8 +84,8 @@ public class FirestoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public FirestoreService firestoreService(Firestore firestore) {
-        return new FirestoreService(firestore);
+    public FirestoreService firestoreService(Firestore firestore, FirestoreProperties properties) {
+        return new FirestoreService(firestore, FirestoreOperationAuditLogger.from(properties));
     }
 
     /**

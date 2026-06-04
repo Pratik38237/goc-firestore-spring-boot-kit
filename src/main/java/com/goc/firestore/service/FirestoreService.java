@@ -24,6 +24,9 @@ import org.springframework.util.Assert;
  * Job job = firestoreService.get(Job.class, COLLECTION_CLIENTS, clientId, COLLECTION_JOBS, jobKey);
  * </pre>
  *
+ * <p>Each {@link #save} and {@link #delete} can append a line to the dedicated operations
+ * log file when {@code goc.firestore.operations-log-enabled=true}.</p>
+ *
  * <p>The write/read methods block on the underlying {@code ApiFuture} so callers get a
  * simple synchronous API. If you need the raw async {@code Firestore}, use
  * {@link #getFirestore()} or {@link #document(String...)}.</p>
@@ -31,9 +34,17 @@ import org.springframework.util.Assert;
 public class FirestoreService {
 
     private final Firestore firestore;
+    private final FirestoreOperationAuditLogger operationAuditLogger;
 
     public FirestoreService(Firestore firestore) {
+        this(firestore, FirestoreOperationAuditLogger.disabled());
+    }
+
+    public FirestoreService(Firestore firestore, FirestoreOperationAuditLogger operationAuditLogger) {
         this.firestore = firestore;
+        this.operationAuditLogger = operationAuditLogger != null
+                ? operationAuditLogger
+                : FirestoreOperationAuditLogger.disabled();
     }
 
     /**
@@ -62,7 +73,17 @@ public class FirestoreService {
      */
     public WriteResult save(Object data, String... pathSegments)
             throws ExecutionException, InterruptedException {
-        return document(pathSegments).set(data).get();
+        String path = FirestoreOperationAuditLogger.formatPath(pathSegments);
+        long startNanos = System.nanoTime();
+        try {
+            WriteResult result = document(pathSegments).set(data).get();
+            operationAuditLogger.log("SAVE", path, elapsedMs(startNanos), true, null);
+            return result;
+        }
+        catch (ExecutionException | InterruptedException | RuntimeException e) {
+            operationAuditLogger.log("SAVE", path, elapsedMs(startNanos), false, e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -77,7 +98,17 @@ public class FirestoreService {
      */
     public WriteResult delete(String... pathSegments)
             throws ExecutionException, InterruptedException {
-        return document(pathSegments).delete().get();
+        String path = FirestoreOperationAuditLogger.formatPath(pathSegments);
+        long startNanos = System.nanoTime();
+        try {
+            WriteResult result = document(pathSegments).delete().get();
+            operationAuditLogger.log("DELETE", path, elapsedMs(startNanos), true, null);
+            return result;
+        }
+        catch (ExecutionException | InterruptedException | RuntimeException e) {
+            operationAuditLogger.log("DELETE", path, elapsedMs(startNanos), false, e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -104,5 +135,9 @@ public class FirestoreService {
      */
     public Firestore getFirestore() {
         return this.firestore;
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 }

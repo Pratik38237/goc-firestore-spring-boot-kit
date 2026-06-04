@@ -16,6 +16,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     credentials-location: file:/etc/secrets/firebase-service-account.json
  *     project-id: my-gcp-project          # optional
  *     database-id: "(default)"            # optional, for named databases
+ *     operations-log-enabled: true         # optional, dedicated save/delete audit file
+ *     operations-log-file: logs/firestore-operations.log
  * </pre>
  */
 @ConfigurationProperties(prefix = "goc.firestore")
@@ -48,6 +50,18 @@ public class FirestoreProperties {
      */
     private String databaseId;
 
+    /**
+     * When {@code true}, each {@code save} and {@code delete} on {@link com.goc.firestore.service.FirestoreService}
+     * appends one line to {@link #operationsLogFile}.
+     */
+    private boolean operationsLogEnabled = false;
+
+    /**
+     * Dedicated audit log file for Firestore write operations. Relative paths are resolved
+     * against {@code user.dir}. Supports a {@code file:} prefix.
+     */
+    private String operationsLogFile = "logs/firestore-operations.log";
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -78,5 +92,21 @@ public class FirestoreProperties {
 
     public void setDatabaseId(String databaseId) {
         this.databaseId = databaseId;
+    }
+
+    public boolean isOperationsLogEnabled() {
+        return operationsLogEnabled;
+    }
+
+    public void setOperationsLogEnabled(boolean operationsLogEnabled) {
+        this.operationsLogEnabled = operationsLogEnabled;
+    }
+
+    public String getOperationsLogFile() {
+        return operationsLogFile;
+    }
+
+    public void setOperationsLogFile(String operationsLogFile) {
+        this.operationsLogFile = operationsLogFile;
     }
 }

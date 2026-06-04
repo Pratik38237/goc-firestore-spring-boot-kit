@@ -22,7 +22,7 @@ can override either of them.
 <dependency>
     <groupId>io.github.Pratik38237</groupId>
     <artifactId>goc-firestore-spring-boot-kit</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.2</version>
 </dependency>
 ```
 
@@ -66,6 +66,27 @@ public class UserService {
 }
 ```
 
+## Operations audit log (save / delete)
+
+Every `FirestoreService.save(...)` and `FirestoreService.delete(...)` can append one line
+to a **dedicated log file** (separate from the main application log).
+
+```yaml
+goc:
+  firestore:
+    operations-log-enabled: true
+    operations-log-file: logs/firestore-operations.log   # optional; supports file: prefix
+```
+
+Example line:
+
+```text
+2026-06-03T10:56:15.123Z | SAVE | clients/abc123/batchJobs/job-key-1 | 45ms | OK
+```
+
+Open the configured file to see the full history of Firestore writes. Relative paths are
+resolved against `user.dir`.
+
 ## Configuration properties
 
 | Property                            | Default  | Description                                                        |
@@ -74,3 +95,5 @@ public class UserService {
 | `goc.firestore.credentials-location`| _(none)_ | `Resource` location of the service account JSON. Blank = use ADC.  |
 | `goc.firestore.project-id`          | _(none)_ | Optional GCP project id; inferred from credentials when not set.   |
 | `goc.firestore.database-id`         | _(none)_ | Optional Firestore database id for named (non-default) databases.  |
+| `goc.firestore.operations-log-enabled` | `false` | Append save/delete lines to the operations log file.            |
+| `goc.firestore.operations-log-file` | `logs/firestore-operations.log` | Path of the dedicated audit log file. |
